@@ -170,12 +170,34 @@ def proxy_request(self, method, url, *args, **kwargs):
                  del headers[k]
         kwargs['headers'] = headers
 
+    # Merge params into URL if present
+    if 'params' in kwargs and kwargs['params']:
+        params = kwargs['params']
+        # Parse existing URL to handle any existing query params
+        url_parts = list(urllib.parse.urlparse(url))
+        query = dict(urllib.parse.parse_qsl(url_parts[4]))
+        query.update(params)
+        url_parts[4] = urllib.parse.urlencode(query)
+        url = urllib.parse.urlunparse(url_parts)
+        
+        # Remove from kwargs since we merged them
+        del kwargs['params']
+
+    print(f"DEBUG: Requesting {url}")
     if "yahoo.com" in url:
         # Route through allorigins.win to bypass CORS
         # allorigins.win/raw ensures we get the raw response body
+        original_url = url
         url = "https://api.allorigins.win/raw?url=" + urllib.parse.quote(url)
+        print(f"DEBUG: Proxied URL: {url}")
         
-    return original_request(self, method, url, *args, **kwargs)
+    resp = original_request(self, method, url, *args, **kwargs)
+    
+    if "yahoo.com" in url or "allorigins" in url:
+        print(f"DEBUG: Response Status: {resp.status_code}")
+        print(f"DEBUG: Response Content Snippet: {resp.text[:200]}")
+        
+    return resp
 
 Session.request = proxy_request
 
@@ -190,9 +212,13 @@ def fetch_stock_data(ticker, start_date, end_date):
         stock = yf.Ticker(ticker)
         # Use simple history call
         data = stock.history(start=start_date, end=end_date)
-        
+        print("DEBUG: Date:")
+        print(start_date)
+        print(end_date)
         print("DEBUG: Fetched Data Head:")
         print(data.head())
+        print("DEBUG: Shape:")
+        print(data.shape)
         print("DEBUG: Fetched Data Tail:")
         print(data.tail())
         print("DEBUG: Data Types:")
