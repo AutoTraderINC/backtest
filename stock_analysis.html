@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Analysis - Pyodide</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+    <style>
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen text-gray-800 font-sans">
+
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">📊 Stock Analysis Configuration</h1>
+            <p class="text-gray-600 mb-6">Running entirely in your browser using WebAssembly (Pyodide).</p>
+            
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-yellow-700">
+                            <strong>Note:</strong> Due to browser security (CORS), checking stocks might fail if the API doesn't allow cross-origin requests. 
+                            You may need a CORS proxy extension or test with a browser that has disabled web security (development only).
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                <!-- Inputs -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Ticker Symbol</label>
+                    <input type="text" id="ticker" value="AAPL" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase" placeholder="e.g. MSFT">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                    <input type="date" id="start_date" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                    <input type="date" id="end_date" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Investment Amount ($)</label>
+                    <input type="number" id="amount" value="10000" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Strategy</label>
+                    <select id="strategy" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="DCA Every Friday">DCA Every Friday</option>
+                        <option value="Buy All At Once">Buy All At Once</option>
+                        <option value="Intraday (4PM-9AM)">Intraday (4PM-9AM)</option>
+                        <option value="Earnings Play">Earnings Play</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-4">
+                <button id="analyze_btn" onclick="runAnalysis()" disabled class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center">
+                    <span>Analyze</span>
+                </button>
+                <div id="status" class="text-sm text-gray-500 italic flex items-center">
+                    <div id="spinner" class="loading-spinner mr-2"></div>
+                    <span id="status-text">Initializing Python environment...</span>
+                </div>
+            </div>
+            
+            <div id="error-msg" class="hidden mt-4 p-4 bg-red-100 text-red-700 rounded-md border border-red-200 text-sm whitespace-pre-wrap"></div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results-area" class="bg-white rounded-xl shadow-lg p-6 min-h-[400px]">
+            <h2 class="text-xl font-semibold mb-4 text-gray-800">Results</h2>
+            <div id="plot-container" class="flex justify-center items-center h-full">
+                <p class="text-gray-400">Chart will appear here after analysis.</p>
+            </div>
+            <div id="stats-container" class="mt-6 font-mono text-sm bg-gray-50 p-4 rounded-md hidden"></div>
+        </div>
+    </div>
+
+    <!-- Python Code -->
+    <script type="text/javascript">
+        // Initialize dates
+        const today = new Date();
+        const lastYear = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+        
+        document.getElementById('end_date').valueAsDate = today;
+        document.getElementById('start_date').valueAsDate = lastYear;
+
+        let pyodide = null;
+
+        async function main() {
+            try {
+                pyodide = await loadPyodide();
+                await pyodide.loadPackage("micropip");
+                const micropip = pyodide.pyimport("micropip");
+                
+                document.getElementById('status-text').innerText = 'Installing libraries (this may take a minute)...';
+                
+                // Install packages
+                // Note: Pinning yfinance to 0.2.40 to avoid 'curl-cffi' dependency which is not compatible with Pyodide yet
+                await micropip.install(['pandas', 'matplotlib', 'yfinance==0.2.40', 'pyodide-http']);
+                
+                document.getElementById('status-text').innerText = 'Setting up virtual filesystem...';
+                
+                // Set up the virtual file system with strategy files
+                await setupVirtualStrategies(pyodide);
+                
+                // Set up the main python analysis code
+                await pyodide.runPythonAsync(`
+import js
+import pyodide_http
+import pandas as pd
+import yfinance as yf
+import matplotlib.pyplot as plt
+import io
+import base64
+import sys
+
+# Patch requests for browser
+pyodide_http.patch_all()
+
+# Monkeypatch requests to use a CORS proxy
+import requests
+from requests.sessions import Session
+original_request = Session.request
+
+import urllib.parse
+
+def proxy_request(self, method, url, *args, **kwargs):
+    # Strip headers that cause browser errors or proxy issues
+    if 'headers' in kwargs and kwargs['headers']:
+        # Create a copy to avoid mutating original headers dict
+        headers = kwargs['headers'].copy()
+        # Browser forbidden headers + Host + User-Agent (let browser/proxy handle UA)
+        unsafe_headers = ['Connection', 'Accept-Encoding', 'Host', 'User-Agent', 'Content-Length', 'Upgrade-Insecure-Requests']
+        for h in unsafe_headers:
+             # Case insensitive check
+             keys_to_remove = [k for k in headers.keys() if k.lower() == h.lower()]
+             for k in keys_to_remove:
+                 del headers[k]
+        kwargs['headers'] = headers
+
+    if "yahoo.com" in url:
+        # Route through allorigins.win to bypass CORS
+        # allorigins.win/raw ensures we get the raw response body
+        url = "https://api.allorigins.win/raw?url=" + urllib.parse.quote(url)
+        
+    return original_request(self, method, url, *args, **kwargs)
+
+Session.request = proxy_request
+
+# Add current dir to path
+sys.path.append('.')
+
+# Import strategies now that we've created the files
+from strategies import STRATEGIES
+
+def fetch_stock_data(ticker, start_date, end_date):
+    try:
+        stock = yf.Ticker(ticker)
+        # Use simple history call
+        data = stock.history(start=start_date, end=end_date)
+        
+        print("DEBUG: Fetched Data Head:")
+        print(data.head())
+        print("DEBUG: Fetched Data Tail:")
+        print(data.tail())
+        print("DEBUG: Data Types:")
+        print(data.dtypes)
+        
+        if data.empty:
+            raise ValueError(f"No data found for {ticker}")
+            
+        data = data.reset_index()
+        return data
+    except Exception as e:
+        raise Exception(f"Failed to fetch data for {ticker}. Error: {str(e)}")
+
+def plot_results_to_base64(data, results, ticker, strategy_name, start_date, end_date):
+    plt.clf() # Clear previous
+    fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+    
+    # Plot stock price
+    ax.plot(data['Date'], data['Close'], linewidth=2, label='Close Price', color='#2E86AB', zorder=3)
+    ax.fill_between(data['Date'], data['Low'], data['High'], alpha=0.15, color='#A23B72', label='Daily Range')
+    
+    # Mark transactions
+    buy_txns = [t for t in results['transactions'] if t['type'] == 'BUY']
+    if buy_txns:
+        buy_dates = [t['date'] for t in buy_txns]
+        buy_prices = [t['price'] for t in buy_txns]
+        ax.scatter(buy_dates, buy_prices, color='#00C853', s=80, marker='^', label='Buy', zorder=5)
+        
+    sell_txns = [t for t in results['transactions'] if t['type'] == 'SELL']
+    if sell_txns:
+        sell_dates = [t['date'] for t in sell_txns]
+        sell_prices = [t['price'] for t in sell_txns]
+        ax.scatter(sell_dates, sell_prices, color='#FF1744', s=80, marker='v', label='Sell', zorder=5)
+        
+    ax.set_title(f'{ticker} - {strategy_name}', fontsize=12, fontweight='bold')
+    ax.legend(loc='upper left')
+    ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    
+    # Save to buffer
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', dpi=100)
+    buf.seek(0)
+    img_str = base64.b64encode(buf.read()).decode('utf-8')
+    plt.close(fig)
+    return img_str
+
+def run_analysis_py(ticker, start_date, end_date, amount, strategy_name):
+    print(f"Analyzing {ticker} with {strategy_name}")
+    
+    data = fetch_stock_data(ticker, start_date, end_date)
+    strategy = STRATEGIES[strategy_name]
+    results = strategy.execute(data, float(amount))
+    
+    img_b64 = plot_results_to_base64(data, results, ticker, strategy_name, start_date, end_date)
+    
+    # Format stats text
+    stats = f"""STRATEGY: {strategy_name}
+Ticker:           {ticker}
+Period:           {start_date} to {end_date}
+Total Investment: \${results['total_cost']:,.2f}
+Final Value:      \${results['final_value']:,.2f}
+Gain/Loss:        \${results['gain_amount']:,.2f} ({results['gain_pct']:+.2f}%)
+Shares Owned:     {results['shares']:.4f}
+Transactions:     {len(results['transactions'])}
+"""
+    return img_b64, stats
+`);
+
+                // Ready
+                document.getElementById('status').className = 'text-green-600 font-medium flex items-center';
+                document.getElementById('status').innerHTML = '<svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Ready';
+                document.getElementById('analyze_btn').disabled = false;
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('status').className = 'text-red-600 flex items-center';
+                document.getElementById('status').innerHTML = '<svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Initialization failed. See console.';
+            }
+        }
+
+        async function setupVirtualStrategies(pyodide) {
+             const strategies = {
+"strategies/__init__.py": `"""Trading strategy implementations."""
+from strategies.base import BaseStrategy
+from strategies.dca_friday import DCAFridayStrategy
+from strategies.buy_once import BuyOnceStrategy
+from strategies.intraday import IntradayStrategy
+from strategies.earnings_play import EarningsPlayStrategy
+
+STRATEGIES = {
+    "DCA Every Friday": DCAFridayStrategy(),
+    "Buy All At Once": BuyOnceStrategy(),
+    "Intraday (4PM-9AM)": IntradayStrategy(),
+    "Earnings Play": EarningsPlayStrategy(),
+}
+__all__ = ["BaseStrategy", "STRATEGIES"]`,
+
+"strategies/base.py": `from abc import ABC, abstractmethod
+import pandas as pd
+from typing import Dict
+
+class BaseStrategy(ABC):
+    def __init__(self, name: str, description: str):
+        self.name = name
+        self.description = description
+    
+    @abstractmethod
+    def execute(self, data: pd.DataFrame, amount: float) -> Dict:
+        pass
+    
+    def calculate_metrics(self, total_cost: float, final_value: float) -> Dict:
+        gain_amount = final_value - total_cost
+        gain_pct = (gain_amount / total_cost * 100) if total_cost > 0 else 0
+        return {
+            'gain_amount': gain_amount,
+            'gain_pct': gain_pct
+        }`,
+
+"strategies/buy_once.py": `import pandas as pd
+from strategies.base import BaseStrategy
+
+class BuyOnceStrategy(BaseStrategy):
+    def __init__(self):
+        super().__init__("Buy All At Once", "Lump sum investment on first day")
+    
+    def execute(self, data: pd.DataFrame, amount: float) -> dict:
+        data = data.copy()
+        data['Date'] = pd.to_datetime(data['Date'])
+        if len(data) == 0: return {'shares':0, 'total_cost':0, 'final_value':0, 'transactions':[], 'gain_pct':0, 'gain_amount':0}
+        
+        first_row = data.iloc[0]
+        buy_price = first_row['Close']
+        shares = amount / buy_price
+        
+        final_price = data.iloc[-1]['Close']
+        final_value = shares * final_price
+        metrics = self.calculate_metrics(amount, final_value)
+        
+        return {
+            'shares': shares, 'total_cost': amount, 'final_value': final_value,
+            'transactions': [{'date': first_row['Date'], 'type': 'BUY', 'price': buy_price, 'shares': shares, 'cost': amount}],
+            **metrics
+        }`,
+
+"strategies/dca_friday.py": `import pandas as pd
+from strategies.base import BaseStrategy
+
+class DCAFridayStrategy(BaseStrategy):
+    def __init__(self):
+        super().__init__("DCA Every Friday", "Invest equal amounts every Friday")
+    
+    def execute(self, data: pd.DataFrame, amount: float) -> dict:
+        data = data.copy()
+        data['Date'] = pd.to_datetime(data['Date'])
+        data['Weekday'] = data['Date'].dt.weekday
+        fridays = data[data['Weekday'] == 4].copy()
+        
+        if len(fridays) == 0: return {'shares':0, 'total_cost':0, 'final_value':0, 'transactions':[], 'gain_pct':0, 'gain_amount':0}
+        
+        amount_per_buy = amount / len(fridays)
+        total_shares = 0
+        total_cost = 0
+        transactions = []
+        
+        for _, row in fridays.iterrows():
+            price = row['Close']
+            shares = amount_per_buy / price
+            total_shares += shares
+            total_cost += amount_per_buy
+            transactions.append({'date': row['Date'], 'type': 'BUY', 'price': price, 'shares': shares, 'cost': amount_per_buy})
+        
+        final_value = total_shares * data.iloc[-1]['Close']
+        metrics = self.calculate_metrics(total_cost, final_value)
+        return {'shares': total_shares, 'total_cost': total_cost, 'final_value': final_value, 'transactions': transactions, **metrics}`,
+
+"strategies/intraday.py": `import pandas as pd
+from strategies.base import BaseStrategy
+
+class IntradayStrategy(BaseStrategy):
+    def __init__(self):
+        super().__init__("Intraday (4PM-9AM)", "Buy at close, sell at next open")
+    
+    def execute(self, data: pd.DataFrame, amount: float) -> dict:
+        data = data.copy()
+        data['Date'] = pd.to_datetime(data['Date'])
+        if len(data) < 2: return {'shares':0, 'total_cost':0, 'final_value':0, 'transactions':[], 'gain_pct':0, 'gain_amount':0}
+        
+        transactions = []
+        current_amount = amount
+        
+        for i in range(len(data) - 1):
+            buy_row = data.iloc[i]
+            sell_row = data.iloc[i + 1]
+            buy_price = buy_row['Close']
+            sell_price = sell_row['Open']
+            shares = current_amount / buy_price
+            proceeds = shares * sell_price
+            
+            transactions.append({'date': buy_row['Date'], 'type': 'BUY', 'price': buy_price, 'shares': shares, 'cost': current_amount})
+            transactions.append({'date': sell_row['Date'], 'type': 'SELL', 'price': sell_price, 'shares': shares, 'cost': proceeds})
+            current_amount = proceeds
+            
+        metrics = self.calculate_metrics(amount, current_amount)
+        return {'shares': 0, 'total_cost': amount, 'final_value': current_amount, 'transactions': transactions, **metrics}`,
+
+"strategies/earnings_play.py": `import pandas as pd
+from datetime import timedelta
+from strategies.base import BaseStrategy
+
+class EarningsPlayStrategy(BaseStrategy):
+    def __init__(self):
+        super().__init__("Earnings Play", "Buy 14 days before earnings, sell 1 day before")
+    
+    def execute(self, data: pd.DataFrame, amount: float) -> dict:
+        data = data.copy()
+        data['Date'] = pd.to_datetime(data['Date'])
+        if len(data) == 0: return {'shares':0, 'total_cost':0, 'final_value':0, 'transactions':[], 'gain_pct':0, 'gain_amount':0}
+        
+        start = data['Date'].min()
+        end = data['Date'].max()
+        earnings_dates = []
+        curr = start
+        while curr <= end:
+            curr += timedelta(days=90)
+            if curr <= end: earnings_dates.append(curr)
+            
+        if not earnings_dates: return {'shares':0, 'total_cost':0, 'final_value':0, 'transactions':[], 'gain_pct':0, 'gain_amount':0}
+        
+        amount_per = amount / len(earnings_dates)
+        transactions = []
+        total_profit = 0
+        total_cost = 0
+        
+        for edate in earnings_dates:
+            buy_target = edate - timedelta(days=14)
+            sell_target = edate - timedelta(days=1)
+            
+            buy_cands = data[data['Date'] <= buy_target]
+            if len(buy_cands) == 0: continue
+            buy_row = buy_cands.iloc[-1]
+            
+            sell_cands = data[(data['Date'] >= buy_row['Date']) & (data['Date'] <= sell_target)]
+            if len(sell_cands) == 0: continue
+            sell_row = sell_cands.iloc[-1]
+            
+            shares = amount_per / buy_row['Close']
+            proceeds = shares * sell_row['Close']
+            
+            transactions.append({'date': buy_row['Date'], 'type': 'BUY', 'price': buy_row['Close'], 'shares': shares, 'cost': amount_per})
+            transactions.append({'date': sell_row['Date'], 'type': 'SELL', 'price': sell_row['Close'], 'shares': shares, 'cost': proceeds})
+            total_cost += amount_per
+            total_profit += (proceeds - amount_per)
+            
+        final_val = total_cost + total_profit
+        metrics = self.calculate_metrics(total_cost, final_val)
+        return {'shares': 0, 'total_cost': total_cost, 'final_value': final_val, 'transactions': transactions, **metrics}`
+            };
+
+            await pyodide.runPythonAsync(`
+import os
+os.makedirs("strategies", exist_ok=True)
+            `);
+            
+            for (const [path, content] of Object.entries(strategies)) {
+                pyodide.FS.writeFile(path, content);
+            }
+        }
+
+        async function runAnalysis() {
+            const btn = document.getElementById('analyze_btn');
+            const errorMsg = document.getElementById('error-msg');
+            const plotContainer = document.getElementById('plot-container');
+            const statsContainer = document.getElementById('stats-container');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<div class="loading-spinner mr-2" style="width:20px;height:20px;"></div>Processing...';
+            errorMsg.classList.add('hidden');
+            plotContainer.innerHTML = '<div class="loading-spinner"></div>';
+            
+            try {
+                const ticker = document.getElementById('ticker').value;
+                const startDate = document.getElementById('start_date').value;
+                const endDate = document.getElementById('end_date').value;
+                const amount = document.getElementById('amount').value;
+                const strategy = document.getElementById('strategy').value;
+                
+                // Call Python function
+                const result = await pyodide.runPythonAsync(`
+run_analysis_py("${ticker}", "${startDate}", "${endDate}", ${amount}, "${strategy}")
+                `);
+                
+                // Result is a tuple (img_base64, stats_string)
+                const imgB64 = result.get(0);
+                const stats = result.get(1);
+                
+                // Render image
+                plotContainer.innerHTML = `<img src="data:image/png;base64,${imgB64}" class="max-w-full h-auto rounded-lg shadow-sm">`;
+                
+                // Render stats
+                statsContainer.innerText = stats;
+                statsContainer.classList.remove('hidden');
+                
+            } catch (err) {
+                console.error(err);
+                errorMsg.innerText = "Error: " + err.message + "\n\nNote: If this is a network error, it is likely due to CORS protections on Yahoo Finance. Requires a CORS proxy.";
+                errorMsg.classList.remove('hidden');
+                plotContainer.innerHTML = '<p class="text-red-500">Analysis failed.</p>';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>Analyze</span>';
+            }
+        }
+
+        main();
+    </script>
+</body>
+</html>
