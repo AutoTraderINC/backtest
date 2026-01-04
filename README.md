@@ -22,20 +22,21 @@ source .venv/bin/activate
 # Start Jupyter
 jupyter notebook
 
-# Open stock_analysis.ipynb and select 'stock-eda' kernel
+# Open nbs/stock_analysis.ipynb and select 'stock-eda' kernel
 ```
 
 ## Project Structure
 
-```
-stock-eda/
-├── strategies/          # Trading strategy modules
-│   ├── __init__.py
-│   ├── base.py         # Base strategy class
-│   ├── dca_friday.py   # DCA every Friday
-│   ├── buy_once.py     # Lump sum investment
-│   └── intraday.py     # Buy 4pm, sell 9am
-├── stock_analysis.ipynb # Main notebook with UI
+backtest/
+├── backtest/
+│   ├── strategies/      # Trading strategy modules
+│   │   ├── __init__.py
+│   │   ├── base.py     # Base strategy class
+│   │   └── ...
+│   └── data/           # Data storage
+├── nbs/
+│   └── stock_analysis.ipynb # Main notebook with UI
+├── utils/              # Utility functions
 ├── setup.py            # Environment setup script
 ├── pyproject.toml      # Dependencies
 └── README.md
@@ -43,7 +44,7 @@ stock-eda/
 
 ## Usage
 
-1. Open `stock_analysis.ipynb` in Jupyter
+1. Open `nbs/stock_analysis.ipynb` in Jupyter
 2. Run all cells to display the UI
 3. Enter:
    - **Ticker**: Stock symbol (e.g., AAPL, MSFT)
@@ -54,10 +55,10 @@ stock-eda/
 
 ## Adding Custom Strategies
 
-Create a new file in `strategies/` inheriting from `BaseStrategy`:
+Create a new file in `backtest/strategies/` inheriting from `BaseStrategy`:
 
 ```python
-from strategies.base import BaseStrategy
+from backtest.strategies.base import BaseStrategy
 import pandas as pd
 
 class MyStrategy(BaseStrategy):
@@ -73,7 +74,7 @@ class MyStrategy(BaseStrategy):
         }
 ```
 
-Register in `strategies/__init__.py` and the notebook will automatically detect it.
+Register in `backtest/strategies/__init__.py` and the notebook will automatically detect it.
 
 ## Requirements
 
