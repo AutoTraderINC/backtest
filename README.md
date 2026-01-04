@@ -26,7 +26,7 @@ jupyter notebook
 ```
 
 ## Project Structure
-
+```
 backtest/
 ├── backtest/
 │   ├── strategies/      # Trading strategy modules
