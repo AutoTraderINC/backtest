@@ -11,6 +11,13 @@ dependencies = [
     "ipywidgets>=8.1.0",
     "ipykernel>=6.25.0",
     "jupyter>=1.0.0",
+    "scipy>=1.15.3",
+    "alpaca-py>=0.43.2",
+    "python-dotenv>=1.2.1",
+    "polars>=1.36.1",
+    "pyarrow>=22.0.0",
+    "pytest>=7.4.0",
+    "pytest-cov>=7.0.0",
 ]
 
 [build-system]

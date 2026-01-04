@@ -6,12 +6,13 @@ from strategies.buy_once import BuyOnceStrategy
 from strategies.intraday import IntradayStrategy
 from strategies.earnings_play import EarningsPlayStrategy
 
+
 # Available strategies
 STRATEGIES = {
-    'DCA Every Friday': DCAFridayStrategy(),
-    'Buy All At Once': BuyOnceStrategy(),
-    'Intraday (4PM-9AM)': IntradayStrategy(),
-    'Earnings Play': EarningsPlayStrategy(),
+    "DCA Every Friday": DCAFridayStrategy(),
+    "Buy All At Once": BuyOnceStrategy(),
+    "Intraday (4PM-9AM)": IntradayStrategy(),
+    "Earnings Play": EarningsPlayStrategy(),
 }
 
-__all__ = ['BaseStrategy', 'STRATEGIES']
+__all__ = ["BaseStrategy", "STRATEGIES"]
