@@ -23,6 +23,10 @@ source .venv/bin/activate
 jupyter notebook
 
 # Open nbs/stock_analysis.ipynb and select 'stock-eda' kernel
+
+# Optional: Lint and format code
+uv run ruff check . --fix  # Fix linting issues
+uv run ruff format .       # Format all files
 ```
 
 ## Project Structure

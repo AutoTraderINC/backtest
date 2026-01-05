@@ -1,12 +1,14 @@
 """Base strategy class for stock trading strategies."""
 
 from abc import ABC, abstractmethod
+from typing import Dict
+
 import pandas as pd
-from typing import Dict, List
+
 
 class BaseStrategy(ABC):
     """Abstract base class for all trading strategies."""
-    
+
     def __init__(self, name: str, description: str):
         """
         Initialize strategy.
@@ -17,7 +19,7 @@ class BaseStrategy(ABC):
         """
         self.name = name
         self.description = description
-    
+
     @abstractmethod
     def execute(self, data: pd.DataFrame, amount: float) -> Dict:
         """
@@ -37,12 +39,12 @@ class BaseStrategy(ABC):
                 - gain_amount: Dollar gain
         """
         pass
-    
+
     def calculate_metrics(self, total_cost: float, final_value: float) -> Dict:
         """Calculate performance metrics."""
         gain_amount = final_value - total_cost
         gain_pct = (gain_amount / total_cost * 100) if total_cost > 0 else 0
-        
+
         return {
             'gain_amount': gain_amount,
             'gain_pct': gain_pct

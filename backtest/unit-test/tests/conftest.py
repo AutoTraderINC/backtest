@@ -1,8 +1,8 @@
 """Pytest configuration and shared fixtures."""
 
-import pytest
+
 import pandas as pd
-from datetime import datetime, timedelta
+import pytest
 
 
 @pytest.fixture
@@ -11,7 +11,7 @@ def sample_stock_data():
     dates = pd.date_range(start='2023-01-01', end='2023-12-31', freq='D')
     # Filter to business days only
     dates = dates[dates.weekday < 5]
-    
+
     data = pd.DataFrame({
         'Date': dates,
         'Open': [100 + i * 0.1 for i in range(len(dates))],
@@ -20,7 +20,7 @@ def sample_stock_data():
         'Close': [101 + i * 0.1 for i in range(len(dates))],
         'Volume': [1000000] * len(dates)
     })
-    
+
     return data
 
 
@@ -29,7 +29,7 @@ def volatile_stock_data():
     """Create volatile stock data with ups and downs."""
     dates = pd.date_range(start='2023-01-01', periods=50, freq='D')
     dates = dates[dates.weekday < 5][:30]
-    
+
     # Create price pattern that goes up and down
     import numpy as np
     base_price = 100
@@ -38,7 +38,7 @@ def volatile_stock_data():
         # Sine wave pattern for volatility
         variation = 10 * np.sin(i / 3)
         prices.append(base_price + variation)
-    
+
     data = pd.DataFrame({
         'Date': dates,
         'Open': [p - 1 for p in prices],
@@ -47,7 +47,7 @@ def volatile_stock_data():
         'Close': prices,
         'Volume': [1000000] * len(dates)
     })
-    
+
     return data
 
 
@@ -56,7 +56,7 @@ def declining_stock_data():
     """Create declining stock data."""
     dates = pd.date_range(start='2023-01-01', periods=60, freq='D')
     dates = dates[dates.weekday < 5][:30]
-    
+
     data = pd.DataFrame({
         'Date': dates,
         'Open': [100 - i * 0.5 for i in range(len(dates))],
@@ -65,7 +65,7 @@ def declining_stock_data():
         'Close': [100 - i * 0.5 for i in range(len(dates))],
         'Volume': [1000000] * len(dates)
     })
-    
+
     return data
 
 

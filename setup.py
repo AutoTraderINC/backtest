@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Setup script for stock-eda environment using uv."""
 
+import os
 import subprocess
 import sys
-import os
+
 
 def run_command(cmd, description):
     """Run a shell command and handle errors."""
@@ -29,32 +30,32 @@ def get_uv_path():
         os.path.expanduser("~/.local/bin/uv"),  # Linux/Mac default
         os.path.expanduser("~/.cargo/bin/uv"),  # Alternative location
     ]
-    
+
     for path in possible_paths:
         try:
             subprocess.run([path, "--version"], check=True, capture_output=True)
             return path
         except (subprocess.CalledProcessError, FileNotFoundError):
             continue
-    
+
     return None
 
 def main():
     """Set up the development environment."""
     print("Stock EDA Environment Setup")
     print("="*60)
-    
+
     # Find uv
     uv_cmd = get_uv_path()
-    
+
     if uv_cmd is None:
         print("uv not found. Installing uv...")
         install_script = "curl -LsSf https://astral.sh/uv/install.sh | sh"
         result = subprocess.run(install_script, shell=True, capture_output=True, text=True)
-        
+
         # Try to find uv again after installation
         uv_cmd = get_uv_path()
-        
+
         if uv_cmd is None:
             print("\n⚠️  uv installation had issues. Falling back to pip + venv...")
             # Fallback to standard Python approach
@@ -81,13 +82,13 @@ def main():
         if not run_command(f"{uv_cmd} pip install -e .", "Installing dependencies"):
             return False
         venv_python = ".venv/bin/python"
-    
+
     # Setup Jupyter kernel
     venv_python = ".venv/bin/python" if os.path.exists(".venv/bin/python") else ".venv/Scripts/python.exe"
-    if not run_command(f"{venv_python} -m ipykernel install --user --name=stock-eda", 
+    if not run_command(f"{venv_python} -m ipykernel install --user --name=stock-eda",
                       "Setting up Jupyter kernel"):
         return False
-    
+
     print("\n" + "="*60)
     print("Setup completed successfully!")
     print("="*60)
@@ -97,7 +98,7 @@ def main():
     print("\nTo start Jupyter:")
     print("  jupyter notebook")
     print("\nOpen 'stock_analysis.ipynb' and select 'stock-eda' kernel")
-    
+
     return True
 
 if __name__ == "__main__":

@@ -49,10 +49,10 @@ def example_test_using_fixtures(sample_stock_data, investment_amount):
     These are automatically injected by pytest!
     """
     from strategies.buy_once import BuyOnceStrategy
-    
+
     strategy = BuyOnceStrategy()
     results = strategy.execute(sample_stock_data, investment_amount)
-    
+
     assert results['total_cost'] == investment_amount
     assert results['shares'] > 0
 
@@ -173,12 +173,12 @@ pytest -l
 
 def example_edge_case_tests(strategy):
     """Examples of important edge cases to test."""
-    
+
     # Empty data
     empty_df = pd.DataFrame()
     results = strategy.execute(empty_df, 10000)
     assert results['shares'] == 0
-    
+
     # Single row data
     one_day = pd.DataFrame({
         'Date': [pd.Timestamp('2023-01-01')],
@@ -186,11 +186,11 @@ def example_edge_case_tests(strategy):
     })
     results = strategy.execute(one_day, 10000)
     # Behavior depends on strategy
-    
+
     # Zero investment
     results = strategy.execute(sample_stock_data, 0)
     assert results['total_cost'] == 0
-    
+
     # Very small investment
     results = strategy.execute(sample_stock_data, 0.01)
     # Should handle gracefully

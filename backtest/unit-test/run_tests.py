@@ -6,13 +6,13 @@ Attempts to run pytest in the current environment or provides instructions.
 
 import subprocess
 import sys
-import os
+
 
 def main():
     print("=" * 70)
     print("Stock EDA Test Suite")
     print("=" * 70)
-    
+
     # Try to run pytest
     try:
         result = subprocess.run(
